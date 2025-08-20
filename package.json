@@ -1,0 +1,45 @@
+{
+  "name": "houseparty",
+  "version": "1.0.0",
+  "description": "A user-to-user live stream mobile app for Android and iOS",
+  "main": "index.js",
+  "scripts": {
+    "install:all": "npm install && npm run install:backend && npm run install:mobile",
+    "install:backend": "cd backend && npm install",
+    "install:mobile": "cd mobile && npm install",
+    "start:backend": "cd backend && npm run dev",
+    "start:mobile": "cd mobile && npm run start",
+    "build:backend": "cd backend && npm run build",
+    "build:mobile": "cd mobile && npm run build",
+    "test": "npm run test:backend && npm run test:mobile",
+    "test:backend": "cd backend && npm test",
+    "test:mobile": "cd mobile && npm test",
+    "lint": "npm run lint:backend && npm run lint:mobile",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:mobile": "cd mobile && npm run lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hardwarestorecat/houseparty.git"
+  },
+  "keywords": [
+    "video-chat",
+    "live-stream",
+    "react-native",
+    "mobile-app",
+    "agora",
+    "socket.io"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hardwarestorecat/houseparty/issues"
+  },
+  "homepage": "https://github.com/hardwarestorecat/houseparty#readme",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2"
+  }
+}
+
