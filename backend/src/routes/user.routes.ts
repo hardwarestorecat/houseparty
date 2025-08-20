@@ -1,37 +1,21 @@
 import express from 'express';
-import { protect } from '../middleware/auth';
+import { protect, isVerified } from '../middleware/auth';
+import {
+  getUserProfile,
+  updateUserProfile,
+  updateUserSettings,
+  registerFCMToken,
+  getFriendsInHouse,
+} from '../controllers/user.controller';
 
 const router = express.Router();
 
-// Import controllers
-// TODO: Implement user controllers
-
 // Protected routes
-router.get('/profile', protect, (req, res) => {
-  // Temporary placeholder until controller is implemented
-  res.status(200).json({
-    success: true,
-    message: 'Profile route',
-    user: req.user,
-  });
-});
-
-router.put('/profile', protect, (req, res) => {
-  // Temporary placeholder until controller is implemented
-  res.status(200).json({
-    success: true,
-    message: 'Update profile route',
-    user: req.user,
-  });
-});
-
-router.post('/fcm-token', protect, (req, res) => {
-  // Temporary placeholder until controller is implemented
-  res.status(200).json({
-    success: true,
-    message: 'FCM token updated',
-  });
-});
+router.get('/profile', protect, getUserProfile);
+router.put('/profile', protect, isVerified, updateUserProfile);
+router.put('/settings', protect, isVerified, updateUserSettings);
+router.post('/fcm-token', protect, registerFCMToken);
+router.get('/friends/in-house', protect, isVerified, getFriendsInHouse);
 
 export default router;
 

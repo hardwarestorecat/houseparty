@@ -1,222 +1,185 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Image,
   ScrollView,
-  Switch,
-  Alert,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
-import notificationService from '../../services/notifications';
+import api from '../../api';
 
 const ProfileScreen = () => {
-  const { user, logout, loading } = useAuthStore();
+  const navigation = useNavigation();
+  const { user } = useAuthStore();
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [autoJoinEnabled, setAutoJoinEnabled] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    friendsCount: 0,
+    partiesHosted: 0,
+    partiesJoined: 0,
+  });
 
-  // Toggle notifications
-  const toggleNotifications = (value: boolean) => {
-    setNotificationsEnabled(value);
-    // TODO: Save notification preferences to backend
+  // Load user profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get('/users/profile');
+        setProfile(response.data.user);
+
+        // Get stats
+        const statsResponse = await api.get('/users/stats');
+        setStats(statsResponse.data.stats);
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+        Alert.alert('Error', 'Failed to load profile. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  // Navigate to settings
+  const navigateToSettings = () => {
+    navigation.navigate('Settings' as never);
   };
 
-  // Toggle auto join
-  const toggleAutoJoin = (value: boolean) => {
-    setAutoJoinEnabled(value);
-    // TODO: Save auto join preferences to backend
+  // Navigate to friends
+  const navigateToFriends = () => {
+    navigation.navigate('Friends' as never);
   };
 
-  // Handle logout
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
-        },
-      ]
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6200ee" />
+      </View>
     );
-  };
-
-  // Handle edit profile
-  const handleEditProfile = () => {
-    // TODO: Navigate to edit profile screen
-    Alert.alert('Edit Profile', 'This feature is coming soon!');
-  };
-
-  // Handle change password
-  const handleChangePassword = () => {
-    // TODO: Navigate to change password screen
-    Alert.alert('Change Password', 'This feature is coming soon!');
-  };
-
-  // Handle privacy policy
-  const handlePrivacyPolicy = () => {
-    // TODO: Navigate to privacy policy screen
-    Alert.alert('Privacy Policy', 'This feature is coming soon!');
-  };
-
-  // Handle terms of service
-  const handleTermsOfService = () => {
-    // TODO: Navigate to terms of service screen
-    Alert.alert('Terms of Service', 'This feature is coming soon!');
-  };
-
-  // Handle about
-  const handleAbout = () => {
-    // TODO: Navigate to about screen
-    Alert.alert('About', 'House Party v1.0.0');
-  };
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Profile</Text>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={navigateToSettings}
+        >
+          <Ionicons name="settings-outline" size={24} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.content}>
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarContainer}>
+            {profile?.profilePicture ? (
+              <Image
+                source={{ uri: profile.profilePicture }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarInitial}>
+                  {profile?.username?.charAt(0).toUpperCase() || 'U'}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.username}>{profile?.username}</Text>
+          <Text style={styles.email}>{profile?.email}</Text>
         </View>
 
-        {/* Profile Info */}
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {user?.username ? user.username.charAt(0).toUpperCase() : '?'}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.friendsCount}</Text>
+            <Text style={styles.statLabel}>Friends</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.partiesHosted}</Text>
+            <Text style={styles.statLabel}>Hosted</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.partiesJoined}</Text>
+            <Text style={styles.statLabel}>Joined</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={navigateToFriends}
+          >
+            <Ionicons name="people" size={24} color="#6200ee" />
+            <Text style={styles.menuItemText}>Friends</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={navigateToSettings}
+          >
+            <Ionicons name="settings" size={24} color="#6200ee" />
+            <Text style={styles.menuItemText}>Settings</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => Alert.alert('Coming Soon', 'This feature is coming soon!')}
+          >
+            <Ionicons name="help-circle" size={24} color="#6200ee" />
+            <Text style={styles.menuItemText}>Help & Support</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>App Settings</Text>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingTitle}>Notifications</Text>
+              <Text style={styles.settingValue}>
+                {profile?.settings?.notifications ? 'Enabled' : 'Disabled'}
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.editAvatarButton}
-              onPress={handleEditProfile}
-            >
-              <Ionicons name="camera" size={16} color="#fff" />
-            </TouchableOpacity>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </View>
-          <Text style={styles.username}>{user?.username || 'User'}</Text>
-          <Text style={styles.email}>{user?.email || 'email@example.com'}</Text>
-          <TouchableOpacity
-            style={styles.editProfileButton}
-            onPress={handleEditProfile}
-          >
-            <Text style={styles.editProfileText}>Edit Profile</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-
-          {/* Notifications */}
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Ionicons name="notifications" size={24} color="#6200ee" />
-              <Text style={styles.settingText}>Notifications</Text>
+              <Text style={styles.settingTitle}>Auto-join Parties</Text>
+              <Text style={styles.settingValue}>
+                {profile?.settings?.autoJoinEnabled ? 'Enabled' : 'Disabled'}
+              </Text>
             </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={toggleNotifications}
-              trackColor={{ false: '#d1d1d1', true: '#b794f6' }}
-              thumbColor={notificationsEnabled ? '#6200ee' : '#f4f3f4'}
-            />
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </View>
 
-          {/* Auto Join */}
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
-              <Ionicons name="videocam" size={24} color="#6200ee" />
-              <Text style={styles.settingText}>Auto-join Video Chat</Text>
+              <Text style={styles.settingTitle}>Video Quality</Text>
+              <Text style={styles.settingValue}>
+                {profile?.settings?.videoQuality
+                  ? profile.settings.videoQuality.charAt(0).toUpperCase() +
+                    profile.settings.videoQuality.slice(1)
+                  : 'Standard'}
+              </Text>
             </View>
-            <Switch
-              value={autoJoinEnabled}
-              onValueChange={toggleAutoJoin}
-              trackColor={{ false: '#d1d1d1', true: '#b794f6' }}
-              thumbColor={autoJoinEnabled ? '#6200ee' : '#f4f3f4'}
-            />
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </View>
-
-          {/* Change Password */}
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleChangePassword}
-          >
-            <View style={styles.settingInfo}>
-              <Ionicons name="lock-closed" size={24} color="#6200ee" />
-              <Text style={styles.settingText}>Change Password</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#999" />
-          </TouchableOpacity>
         </View>
-
-        {/* About */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-
-          {/* Privacy Policy */}
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handlePrivacyPolicy}
-          >
-            <View style={styles.settingInfo}>
-              <Ionicons name="shield" size={24} color="#6200ee" />
-              <Text style={styles.settingText}>Privacy Policy</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#999" />
-          </TouchableOpacity>
-
-          {/* Terms of Service */}
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleTermsOfService}
-          >
-            <View style={styles.settingInfo}>
-              <Ionicons name="document-text" size={24} color="#6200ee" />
-              <Text style={styles.settingText}>Terms of Service</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#999" />
-          </TouchableOpacity>
-
-          {/* About */}
-          <TouchableOpacity style={styles.settingItem} onPress={handleAbout}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="information-circle" size={24} color="#6200ee" />
-              <Text style={styles.settingText}>About</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#999" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Logout */}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="log-out" size={20} color="#fff" />
-              <Text style={styles.logoutText}>Logout</Text>
-            </>
-          )}
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -227,7 +190,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f8f8',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
     backgroundColor: '#fff',
@@ -235,21 +206,32 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#6200ee',
+    color: '#333',
   },
-  profileSection: {
+  settingsButton: {
+    padding: 5,
+  },
+  content: {
+    flex: 1,
+  },
+  profileHeader: {
     alignItems: 'center',
-    padding: 20,
+    paddingVertical: 30,
     backgroundColor: '#fff',
-    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   avatarContainer: {
-    position: 'relative',
     marginBottom: 15,
   },
   avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarPlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
@@ -257,26 +239,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarText: {
+  avatarInitial: {
     fontSize: 40,
     fontWeight: 'bold',
     color: '#6200ee',
   },
-  editAvatarButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#6200ee',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
   username: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 5,
@@ -284,64 +253,79 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 15,
   },
-  editProfileButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#6200ee',
-    borderRadius: 20,
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  editProfileText: {
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#6200ee',
-    fontWeight: '500',
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  statDivider: {
+    width: 1,
+    height: '70%',
+    backgroundColor: '#eee',
   },
   section: {
     backgroundColor: '#fff',
-    marginBottom: 20,
-    paddingTop: 10,
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-    paddingHorizontal: 20,
+    color: '#6200ee',
+    marginVertical: 10,
   },
-  settingItem: {
+  menuItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 15,
-    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#f0f0f0',
   },
-  settingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingText: {
+  menuItemText: {
+    flex: 1,
     fontSize: 16,
     color: '#333',
     marginLeft: 15,
   },
-  logoutButton: {
-    backgroundColor: '#ff3b30',
-    marginHorizontal: 20,
-    marginBottom: 30,
-    paddingVertical: 15,
-    borderRadius: 8,
+  settingItem: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  logoutText: {
-    color: '#fff',
+  settingInfo: {
+    flex: 1,
+  },
+  settingTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 10,
+    color: '#333',
+  },
+  settingValue: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
   },
 });
 

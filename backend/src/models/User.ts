@@ -15,6 +15,15 @@ export interface IUser extends Document {
   settings: {
     notifications: boolean;
     autoJoinEnabled: boolean;
+    videoQuality: string;
+    audioQuality: string;
+    dataUsage: string;
+    notificationTypes: {
+      friendRequests: boolean;
+      friendJoined: boolean;
+      partyInvites: boolean;
+      appUpdates: boolean;
+    };
   };
   createdAt: Date;
   updatedAt: Date;
@@ -88,6 +97,39 @@ const UserSchema: Schema = new Schema(
         type: Boolean,
         default: true,
       },
+      videoQuality: {
+        type: String,
+        enum: ['low', 'standard', 'high'],
+        default: 'standard',
+      },
+      audioQuality: {
+        type: String,
+        enum: ['low', 'standard', 'high'],
+        default: 'standard',
+      },
+      dataUsage: {
+        type: String,
+        enum: ['low', 'balanced', 'high'],
+        default: 'balanced',
+      },
+      notificationTypes: {
+        friendRequests: {
+          type: Boolean,
+          default: true,
+        },
+        friendJoined: {
+          type: Boolean,
+          default: true,
+        },
+        partyInvites: {
+          type: Boolean,
+          default: true,
+        },
+        appUpdates: {
+          type: Boolean,
+          default: true,
+        },
+      },
     },
   },
   {
@@ -102,4 +144,3 @@ UserSchema.index({ username: 1 });
 UserSchema.index({ isInHouse: 1 });
 
 export default mongoose.model<IUser>('User', UserSchema);
-

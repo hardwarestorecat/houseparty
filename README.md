@@ -7,8 +7,19 @@ A user-to-user live stream mobile app for Android and iOS that allows friends to
 - Real-time video chat with up to 10 users simultaneously
 - Push notifications when friends enter the house
 - Automatic video chat joining via notifications
-- Contact import and friend management
+- Friend management system with requests and search
 - Invitation system for users not currently in the app
+- Enhanced notification preferences
+- Advanced video and audio quality settings
+- Data usage optimization options
+
+### Future Enhancements
+- Chat functionality within video calls
+- Screen sharing capabilities
+- Profile customization with photo upload
+- Contact import from phone
+- End-to-end encryption
+- Background blur and virtual backgrounds
 
 ## Tech Stack
 
@@ -265,4 +276,3 @@ The mobile app can be built for Android and iOS using the standard React Native 
 
 ## License
 [MIT](LICENSE)
-
