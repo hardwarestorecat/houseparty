@@ -1,20 +1,24 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IParty extends Document {
-  host: mongoose.Types.ObjectId;
+  name: string;
+  hostId: mongoose.Types.ObjectId;
   participants: mongoose.Types.ObjectId[];
-  maxParticipants: number;
+  channelName: string;
   isActive: boolean;
-  startTime: Date;
-  endTime?: Date;
-  agoraChannel: string;
+  maxParticipants: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const PartySchema = new Schema<IParty>(
+const PartySchema: Schema = new Schema(
   {
-    host: {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    hostId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
@@ -25,27 +29,20 @@ const PartySchema = new Schema<IParty>(
         ref: 'User',
       },
     ],
-    maxParticipants: {
-      type: Number,
-      default: 10,
-      min: [2, 'A party must have at least 2 participants'],
-      max: [10, 'A party cannot have more than 10 participants'],
+    channelName: {
+      type: String,
+      required: true,
+      unique: true,
     },
     isActive: {
       type: Boolean,
       default: true,
     },
-    startTime: {
-      type: Date,
-      default: Date.now,
-    },
-    endTime: {
-      type: Date,
-    },
-    agoraChannel: {
-      type: String,
-      required: true,
-      unique: true,
+    maxParticipants: {
+      type: Number,
+      default: 10,
+      min: 2,
+      max: 10,
     },
   },
   {
@@ -53,10 +50,8 @@ const PartySchema = new Schema<IParty>(
   }
 );
 
-// Create indexes
-PartySchema.index({ host: 1 });
-PartySchema.index({ isActive: 1 });
-PartySchema.index({ agoraChannel: 1 }, { unique: true });
+// Create a compound index for efficient queries
+PartySchema.index({ isActive: 1, createdAt: -1 });
 
 export default mongoose.model<IParty>('Party', PartySchema);
 

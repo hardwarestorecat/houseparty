@@ -1,20 +1,13 @@
 import express from 'express';
-import { protect } from '../middleware/auth';
+import { protect, isVerified } from '../middleware/auth';
+import { generateToken, getActiveParties, joinParty, leaveParty } from '../controllers/video.controller';
 
 const router = express.Router();
 
-// Import controllers
-// TODO: Implement video controllers
-
 // Protected routes
-router.post('/token', protect, (req, res) => {
-  // Temporary placeholder until controller is implemented
-  res.status(200).json({
-    success: true,
-    message: 'Video token route',
-    token: 'dummy-token',
-  });
-});
+router.post('/token', protect, isVerified, generateToken);
+router.get('/parties', protect, isVerified, getActiveParties);
+router.post('/parties/:id/join', protect, isVerified, joinParty);
+router.post('/parties/:id/leave', protect, isVerified, leaveParty);
 
 export default router;
-

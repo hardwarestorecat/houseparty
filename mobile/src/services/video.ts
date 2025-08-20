@@ -1,26 +1,33 @@
 import { Platform } from 'react-native';
 import RtcEngine, {
-  ChannelProfile,
-  ClientRole,
   RtcLocalView,
   RtcRemoteView,
   VideoRenderMode,
+  ChannelProfile,
+  ClientRole,
+  VideoEncoderConfiguration,
+  VideoOutputOrientationMode,
+  DegradationPreference,
 } from 'react-native-agora';
-import api from '../api';
+import { EventEmitter } from 'events';
 
-class VideoService {
+/**
+ * Video service for Agora.io integration
+ */
+class VideoService extends EventEmitter {
   private engine: RtcEngine | null = null;
-  private channelId: string | null = null;
-  private appId: string = '';
   private initialized: boolean = false;
-  private joined: boolean = false;
-  private listeners: { [key: string]: Function[] } = {};
+  private channelName: string = '';
+  private uid: number = 0;
 
-  // Initialize the video service
-  public init = async (appId: string) => {
-    if (this.initialized) return;
-
-    this.appId = appId;
+  /**
+   * Initialize Agora RTC engine
+   * @param appId Agora App ID
+   */
+  async init(appId: string): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
 
     try {
       // Create RTC engine instance
@@ -32,206 +39,209 @@ class VideoService {
       // Set channel profile to live broadcasting
       await this.engine.setChannelProfile(ChannelProfile.LiveBroadcasting);
 
-      // Set client role to broadcaster by default
+      // Set client role to broadcaster
       await this.engine.setClientRole(ClientRole.Broadcaster);
 
-      // Register event listeners
-      this.registerEventListeners();
+      // Set video encoder configuration
+      await this.engine.setVideoEncoderConfiguration({
+        dimensions: {
+          width: 640,
+          height: 360,
+        },
+        frameRate: VideoEncoderConfiguration.FRAME_RATE.FRAME_RATE_FPS_15,
+        orientationMode: VideoOutputOrientationMode.Adaptation,
+        degradationPreference: DegradationPreference.MaintainQuality,
+      });
+
+      // Register event handlers
+      this.engine.addListener('Warning', (warn) => {
+        console.log('Warning', warn);
+      });
+
+      this.engine.addListener('Error', (err) => {
+        console.error('Error', err);
+        this.emit('Error', err);
+      });
+
+      this.engine.addListener('UserJoined', (uid, elapsed) => {
+        console.log('UserJoined', uid, elapsed);
+        this.emit('UserJoined', uid, elapsed);
+      });
+
+      this.engine.addListener('UserOffline', (uid, reason) => {
+        console.log('UserOffline', uid, reason);
+        this.emit('UserOffline', uid, reason);
+      });
+
+      this.engine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
+        console.log('JoinChannelSuccess', channel, uid, elapsed);
+        this.emit('JoinChannelSuccess', channel, uid, elapsed);
+      });
+
+      this.engine.addListener('LeaveChannel', (stats) => {
+        console.log('LeaveChannel', stats);
+        this.emit('LeaveChannel', stats);
+      });
 
       this.initialized = true;
-      console.log('Agora engine initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Agora engine:', error);
+      console.error('Failed to initialize Agora engine', error);
       throw error;
     }
-  };
+  }
 
-  // Clean up resources
-  public cleanup = async () => {
-    if (this.joined) {
-      await this.leaveChannel();
-    }
-
-    if (this.engine) {
-      this.unregisterEventListeners();
-      await this.engine.destroy();
-      this.engine = null;
-    }
-
-    this.initialized = false;
-    this.channelId = null;
-  };
-
-  // Join a video channel
-  public joinChannel = async (channelId: string, uid: number = 0) => {
+  /**
+   * Join a channel
+   * @param channelName Channel name
+   * @param uid User ID (optional)
+   */
+  async joinChannel(channelName: string, uid: number = 0): Promise<void> {
     if (!this.initialized || !this.engine) {
       throw new Error('Agora engine not initialized');
     }
 
     try {
-      // Get token from backend
-      const response = await api.post('/video/token', {
-        channelId,
-        uid: uid.toString(),
-      });
+      this.channelName = channelName;
+      this.uid = uid;
 
-      const { token } = response.data;
-
-      // Join channel
-      await this.engine.joinChannel(token, channelId, null, uid);
-      this.channelId = channelId;
-      this.joined = true;
-
-      console.log(`Joined channel: ${channelId}`);
+      // Join channel with token
+      await this.engine.joinChannel(null, channelName, null, uid);
     } catch (error) {
-      console.error('Failed to join channel:', error);
+      console.error('Failed to join channel', error);
       throw error;
     }
-  };
+  }
 
-  // Leave the current channel
-  public leaveChannel = async () => {
-    if (!this.joined || !this.engine) return;
+  /**
+   * Leave the current channel
+   */
+  async leaveChannel(): Promise<void> {
+    if (!this.initialized || !this.engine) {
+      return;
+    }
 
     try {
       await this.engine.leaveChannel();
-      this.joined = false;
-      this.channelId = null;
-
-      console.log('Left channel');
+      this.channelName = '';
     } catch (error) {
-      console.error('Failed to leave channel:', error);
+      console.error('Failed to leave channel', error);
       throw error;
     }
-  };
+  }
 
-  // Toggle camera
-  public toggleCamera = async (enabled: boolean) => {
-    if (!this.engine) return;
+  /**
+   * Toggle microphone
+   * @param muted Whether to mute the microphone
+   */
+  async toggleMicrophone(muted: boolean): Promise<void> {
+    if (!this.initialized || !this.engine) {
+      throw new Error('Agora engine not initialized');
+    }
 
     try {
-      await this.engine.enableLocalVideo(enabled);
+      await this.engine.enableLocalAudio(!muted);
     } catch (error) {
-      console.error('Failed to toggle camera:', error);
+      console.error('Failed to toggle microphone', error);
       throw error;
     }
-  };
+  }
 
-  // Toggle microphone
-  public toggleMicrophone = async (enabled: boolean) => {
-    if (!this.engine) return;
+  /**
+   * Toggle camera
+   * @param disabled Whether to disable the camera
+   */
+  async toggleCamera(disabled: boolean): Promise<void> {
+    if (!this.initialized || !this.engine) {
+      throw new Error('Agora engine not initialized');
+    }
 
     try {
-      await this.engine.enableLocalAudio(enabled);
+      await this.engine.enableLocalVideo(!disabled);
     } catch (error) {
-      console.error('Failed to toggle microphone:', error);
+      console.error('Failed to toggle camera', error);
       throw error;
     }
-  };
+  }
 
-  // Switch camera
-  public switchCamera = async () => {
-    if (!this.engine) return;
+  /**
+   * Switch between front and back camera
+   */
+  async switchCamera(): Promise<void> {
+    if (!this.initialized || !this.engine) {
+      throw new Error('Agora engine not initialized');
+    }
 
     try {
       await this.engine.switchCamera();
     } catch (error) {
-      console.error('Failed to switch camera:', error);
+      console.error('Failed to switch camera', error);
       throw error;
     }
-  };
+  }
 
-  // Get local video view component
-  public getLocalVideoView = () => {
+  /**
+   * Get local video view component
+   * @returns RtcLocalView.SurfaceView component
+   */
+  getLocalVideoView() {
+    if (!this.initialized) {
+      return null;
+    }
+
     return (
       <RtcLocalView.SurfaceView
         style={{ flex: 1 }}
+        channelId={this.channelName}
         renderMode={VideoRenderMode.Hidden}
       />
     );
-  };
+  }
 
-  // Get remote video view component
-  public getRemoteVideoView = (uid: number) => {
+  /**
+   * Get remote video view component for a specific user
+   * @param uid Remote user ID
+   * @returns RtcRemoteView.SurfaceView component
+   */
+  getRemoteVideoView(uid: number) {
+    if (!this.initialized) {
+      return null;
+    }
+
     return (
       <RtcRemoteView.SurfaceView
         style={{ flex: 1 }}
         uid={uid}
+        channelId={this.channelName}
         renderMode={VideoRenderMode.Hidden}
-        channelId={this.channelId || ''}
+        zOrderMediaOverlay={true}
       />
     );
-  };
+  }
 
-  // Add event listener
-  public on = (event: string, callback: Function) => {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
+  /**
+   * Clean up resources
+   */
+  async cleanup(): Promise<void> {
+    if (!this.initialized || !this.engine) {
+      return;
     }
 
-    this.listeners[event].push(callback);
-  };
+    try {
+      // Leave channel
+      await this.engine.leaveChannel();
 
-  // Remove event listener
-  public off = (event: string, callback: Function) => {
-    if (this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(
-        (cb) => cb !== callback
-      );
+      // Remove all event listeners
+      this.engine.removeAllListeners();
+
+      // Destroy engine instance
+      await RtcEngine.destroy();
+
+      this.engine = null;
+      this.initialized = false;
+    } catch (error) {
+      console.error('Failed to clean up Agora engine', error);
     }
-  };
-
-  // Register event listeners
-  private registerEventListeners = () => {
-    if (!this.engine) return;
-
-    // User joined
-    this.engine.addListener('UserJoined', (uid, elapsed) => {
-      console.log('User joined:', uid, elapsed);
-      this.listeners['UserJoined']?.forEach((callback) => {
-        callback(uid, elapsed);
-      });
-    });
-
-    // User offline
-    this.engine.addListener('UserOffline', (uid, reason) => {
-      console.log('User offline:', uid, reason);
-      this.listeners['UserOffline']?.forEach((callback) => {
-        callback(uid, reason);
-      });
-    });
-
-    // Join channel success
-    this.engine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
-      console.log('Join channel success:', channel, uid, elapsed);
-      this.listeners['JoinChannelSuccess']?.forEach((callback) => {
-        callback(channel, uid, elapsed);
-      });
-    });
-
-    // Leave channel
-    this.engine.addListener('LeaveChannel', (stats) => {
-      console.log('Leave channel:', stats);
-      this.listeners['LeaveChannel']?.forEach((callback) => {
-        callback(stats);
-      });
-    });
-
-    // Error
-    this.engine.addListener('Error', (error) => {
-      console.error('Agora error:', error);
-      this.listeners['Error']?.forEach((callback) => {
-        callback(error);
-      });
-    });
-  };
-
-  // Unregister event listeners
-  private unregisterEventListeners = () => {
-    if (!this.engine) return;
-
-    this.engine.removeAllListeners();
-  };
+  }
 }
 
 export default new VideoService();

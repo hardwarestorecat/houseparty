@@ -1,44 +1,57 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IInvitation extends Document {
-  sender: mongoose.Types.ObjectId;
-  recipient: mongoose.Types.ObjectId;
-  party: mongoose.Types.ObjectId;
-  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  senderId: mongoose.Types.ObjectId;
+  receiverId?: mongoose.Types.ObjectId;
+  receiverPhone?: string;
+  receiverEmail?: string;
+  partyId?: mongoose.Types.ObjectId;
+  type: string; // 'party' | 'friend'
+  status: string; // 'pending' | 'accepted' | 'declined'
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const InvitationSchema = new Schema<IInvitation>(
+const InvitationSchema: Schema = new Schema(
   {
-    sender: {
+    senderId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
-    recipient: {
+    receiverId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
     },
-    party: {
+    receiverPhone: {
+      type: String,
+      trim: true,
+    },
+    receiverEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+    partyId: {
       type: Schema.Types.ObjectId,
       ref: 'Party',
+    },
+    type: {
+      type: String,
       required: true,
+      enum: ['party', 'friend'],
     },
     status: {
       type: String,
-      enum: ['pending', 'accepted', 'declined', 'expired'],
+      required: true,
+      enum: ['pending', 'accepted', 'declined'],
       default: 'pending',
     },
     expiresAt: {
       type: Date,
       required: true,
-      default: function() {
-        // Default expiration: 1 hour from creation
-        return new Date(Date.now() + 60 * 60 * 1000);
-      },
+      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
     },
   },
   {
@@ -46,10 +59,12 @@ const InvitationSchema = new Schema<IInvitation>(
   }
 );
 
-// Create indexes
-InvitationSchema.index({ sender: 1, recipient: 1, party: 1 }, { unique: true });
-InvitationSchema.index({ recipient: 1, status: 1 });
-InvitationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Create indexes for efficient queries
+InvitationSchema.index({ senderId: 1, status: 1 });
+InvitationSchema.index({ receiverId: 1, status: 1 });
+InvitationSchema.index({ receiverPhone: 1, status: 1 });
+InvitationSchema.index({ receiverEmail: 1, status: 1 });
+InvitationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for automatic deletion
 
 export default mongoose.model<IInvitation>('Invitation', InvitationSchema);
 

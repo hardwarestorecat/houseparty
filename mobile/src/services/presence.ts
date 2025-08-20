@@ -1,199 +1,214 @@
 import { io, Socket } from 'socket.io-client';
-import { AppState, AppStateStatus } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { EventEmitter } from 'events';
+import { useAuthStore } from '../store/authStore';
 
-class PresenceService {
+/**
+ * Presence service for real-time user presence
+ */
+class PresenceService extends EventEmitter {
   private socket: Socket | null = null;
-  private userId: string | null = null;
-  private appState: AppStateStatus = 'active';
-  private listeners: { [key: string]: Function[] } = {};
+  private initialized: boolean = false;
+  private userId: string = '';
+  private baseUrl: string = '';
 
-  // Initialize the presence service
-  public init = async (serverUrl: string) => {
-    // Get user ID from AsyncStorage
-    this.userId = await AsyncStorage.getItem('userId');
-    
-    if (!this.userId) {
-      console.error('User ID not found. Cannot initialize presence service.');
+  /**
+   * Initialize Socket.IO connection
+   * @param baseUrl Base URL for Socket.IO server
+   */
+  async init(baseUrl: string): Promise<void> {
+    if (this.initialized) {
       return;
     }
 
-    // Connect to Socket.IO server
-    this.socket = io(serverUrl, {
-      auth: {
-        userId: this.userId,
-      },
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
-
-    // Set up event listeners
-    this.setupSocketListeners();
-    
-    // Set up app state listener
-    AppState.addEventListener('change', this.handleAppStateChange);
-    
-    // Enter the house when app is active
-    if (this.appState === 'active') {
-      this.enterHouse();
-    }
-  };
-
-  // Clean up resources
-  public cleanup = () => {
-    // Remove app state listener
-    AppState.removeEventListener('change', this.handleAppStateChange);
-    
-    // Disconnect socket
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-    }
-  };
-
-  // Enter the house
-  public enterHouse = () => {
-    if (this.socket && this.userId) {
-      this.socket.emit('enter_house', this.userId);
-    }
-  };
-
-  // Leave the house
-  public leaveHouse = () => {
-    if (this.socket && this.userId) {
-      this.socket.emit('leave_house', this.userId);
-    }
-  };
-
-  // Get users in the house
-  public getUsersInHouse = (callback: (users: any[]) => void) => {
-    if (this.socket) {
-      this.socket.emit('get_users_in_house', (users: any[]) => {
-        callback(users);
-      });
-    } else {
-      callback([]);
-    }
-  };
-
-  // Add event listener
-  public on = (event: string, callback: Function) => {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
-    }
-    
-    this.listeners[event].push(callback);
-    
-    if (this.socket) {
-      this.socket.on(event, (...args) => {
-        callback(...args);
-      });
-    }
-  };
-
-  // Remove event listener
-  public off = (event: string, callback: Function) => {
-    if (this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(
-        (cb) => cb !== callback
-      );
-    }
-    
-    if (this.socket) {
-      this.socket.off(event);
+    try {
+      this.baseUrl = baseUrl;
       
-      // Re-add remaining listeners
-      this.listeners[event]?.forEach((cb) => {
-        this.socket?.on(event, (...args) => {
-          cb(...args);
-        });
-      });
-    }
-  };
+      // Get user ID from auth store
+      const authStore = useAuthStore.getState();
+      this.userId = authStore.user?._id || '';
 
-  // Handle app state changes
-  private handleAppStateChange = (nextAppState: AppStateStatus) => {
-    if (
-      this.appState.match(/inactive|background/) &&
-      nextAppState === 'active'
-    ) {
-      // App has come to the foreground
-      this.enterHouse();
-    } else if (
-      this.appState === 'active' &&
-      nextAppState.match(/inactive|background/)
-    ) {
-      // App has gone to the background
-      this.leaveHouse();
+      if (!this.userId) {
+        throw new Error('User ID not available');
+      }
+
+      // Get access token from auth store
+      const accessToken = authStore.accessToken;
+
+      if (!accessToken) {
+        throw new Error('Access token not available');
+      }
+
+      // Connect to Socket.IO server
+      this.socket = io(baseUrl, {
+        auth: {
+          token: accessToken,
+          userId: this.userId,
+        },
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      // Register event handlers
+      this.socket.on('connect', this.handleConnect.bind(this));
+      this.socket.on('disconnect', this.handleDisconnect.bind(this));
+      this.socket.on('connect_error', this.handleConnectError.bind(this));
+      this.socket.on('user_entered', this.handleUserEntered.bind(this));
+      this.socket.on('user_left', this.handleUserLeft.bind(this));
+      this.socket.on('party_created', this.handlePartyCreated.bind(this));
+      this.socket.on('party_ended', this.handlePartyEnded.bind(this));
+
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to initialize presence service', error);
+      throw error;
     }
+  }
+
+  /**
+   * Handle socket connect event
+   */
+  private handleConnect(): void {
+    console.log('Socket connected');
     
-    this.appState = nextAppState;
-  };
+    // Enter the house
+    this.enterHouse();
+  }
 
-  // Set up socket event listeners
-  private setupSocketListeners = () => {
-    if (!this.socket) return;
+  /**
+   * Handle socket disconnect event
+   */
+  private handleDisconnect(): void {
+    console.log('Socket disconnected');
+    
+    // Leave the house
+    this.leaveHouse();
+  }
 
-    // Connection events
-    this.socket.on('connect', () => {
-      console.log('Connected to presence server');
-      this.enterHouse();
-    });
+  /**
+   * Handle socket connect error
+   * @param error Connection error
+   */
+  private handleConnectError(error: Error): void {
+    console.error('Socket connection error', error);
+    this.emit('connect_error', error);
+  }
 
-    this.socket.on('disconnect', () => {
-      console.log('Disconnected from presence server');
-    });
+  /**
+   * Handle user entered event
+   * @param data Event data
+   */
+  private handleUserEntered(data: any): void {
+    console.log('User entered', data);
+    this.emit('user_entered', data);
+  }
 
-    this.socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
-    });
+  /**
+   * Handle user left event
+   * @param data Event data
+   */
+  private handleUserLeft(data: any): void {
+    console.log('User left', data);
+    this.emit('user_left', data);
+  }
 
-    // User events
-    this.socket.on('user_entered', (user) => {
-      console.log('User entered:', user);
-      // Notify listeners
-      this.listeners['user_entered']?.forEach((callback) => {
-        callback(user);
-      });
-    });
+  /**
+   * Handle party created event
+   * @param data Event data
+   */
+  private handlePartyCreated(data: any): void {
+    console.log('Party created', data);
+    this.emit('party_created', data);
+  }
 
-    this.socket.on('user_left', (user) => {
-      console.log('User left:', user);
-      // Notify listeners
-      this.listeners['user_left']?.forEach((callback) => {
-        callback(user);
-      });
-    });
+  /**
+   * Handle party ended event
+   * @param data Event data
+   */
+  private handlePartyEnded(data: any): void {
+    console.log('Party ended', data);
+    this.emit('party_ended', data);
+  }
 
-    // Party events
-    this.socket.on('party_created', (party) => {
-      console.log('Party created:', party);
-      // Notify listeners
-      this.listeners['party_created']?.forEach((callback) => {
-        callback(party);
-      });
-    });
+  /**
+   * Enter the house (mark user as present)
+   */
+  enterHouse(): void {
+    if (!this.initialized || !this.socket) {
+      console.warn('Presence service not initialized');
+      return;
+    }
 
-    this.socket.on('party_ended', (party) => {
-      console.log('Party ended:', party);
-      // Notify listeners
-      this.listeners['party_ended']?.forEach((callback) => {
-        callback(party);
-      });
-    });
+    this.socket.emit('enter_house', this.userId);
+  }
 
-    // Invitation events
-    this.socket.on('invitation_received', (invitation) => {
-      console.log('Invitation received:', invitation);
-      // Notify listeners
-      this.listeners['invitation_received']?.forEach((callback) => {
-        callback(invitation);
-      });
-    });
-  };
+  /**
+   * Leave the house (mark user as absent)
+   */
+  leaveHouse(): void {
+    if (!this.initialized || !this.socket) {
+      return;
+    }
+
+    this.socket.emit('leave_house', this.userId);
+  }
+
+  /**
+   * Get users currently in the house
+   * @param callback Callback function to receive user IDs
+   */
+  getUsersInHouse(callback: (userIds: string[]) => void): void {
+    if (!this.initialized || !this.socket) {
+      console.warn('Presence service not initialized');
+      callback([]);
+      return;
+    }
+
+    this.socket.emit('get_users_in_house', callback);
+  }
+
+  /**
+   * Reconnect to the server with a new token
+   * @param accessToken New access token
+   */
+  reconnect(accessToken: string): void {
+    if (!this.socket) {
+      this.init(this.baseUrl);
+      return;
+    }
+
+    // Disconnect and reconnect with new token
+    this.socket.disconnect();
+    
+    this.socket.auth = {
+      token: accessToken,
+      userId: this.userId,
+    };
+    
+    this.socket.connect();
+  }
+
+  /**
+   * Clean up resources
+   */
+  cleanup(): void {
+    if (!this.initialized || !this.socket) {
+      return;
+    }
+
+    // Leave the house before disconnecting
+    this.leaveHouse();
+
+    // Remove all event listeners
+    this.socket.removeAllListeners();
+
+    // Disconnect socket
+    this.socket.disconnect();
+
+    this.socket = null;
+    this.initialized = false;
+  }
 }
 
 export default new PresenceService();

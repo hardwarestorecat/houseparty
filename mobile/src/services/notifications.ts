@@ -1,171 +1,181 @@
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { useAuthStore } from '../store/authStore';
 import api from '../api';
 
+/**
+ * Notification service for push notifications
+ */
 class NotificationService {
-  private expoPushToken: string | null = null;
-  private notificationListener: any = null;
-  private responseListener: any = null;
+  private initialized: boolean = false;
+  private expoPushToken: string = '';
 
-  // Initialize the notification service
-  public init = async () => {
-    // Check if device is a physical device
-    if (!Device.isDevice) {
-      console.log('Must use physical device for push notifications');
+  /**
+   * Initialize notification service
+   */
+  async init(): Promise<void> {
+    if (this.initialized) {
       return;
     }
 
-    // Check if permission is granted
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    try {
+      // Check if device is supported
+      if (!Device.isDevice) {
+        console.warn('Push notifications are not supported in the simulator');
+        return;
+      }
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+      // Request permission
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        console.warn('Failed to get push token for push notification!');
+        return;
+      }
+
+      // Get Expo push token
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        experienceId: Constants.manifest?.extra?.experienceId,
+      });
+      
+      this.expoPushToken = tokenData.data;
+
+      // Configure notification handler
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+
+      // Register token with backend
+      await this.registerToken();
+
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to initialize notification service', error);
     }
+  }
 
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+  /**
+   * Register push token with backend
+   */
+  async registerToken(): Promise<void> {
+    if (!this.expoPushToken) {
       return;
     }
 
-    // Get Expo push token
-    const tokenData = await Notifications.getExpoPushTokenAsync();
-    this.expoPushToken = tokenData.data;
+    try {
+      const authStore = useAuthStore.getState();
+      
+      if (!authStore.isAuthenticated || !authStore.user) {
+        return;
+      }
 
-    // Save token to AsyncStorage
-    await AsyncStorage.setItem('expoPushToken', this.expoPushToken);
-
-    // Register token with backend
-    this.registerTokenWithBackend();
-
-    // Set up notification handlers
-    this.setupNotificationHandlers();
-
-    // Set up Android notification channel
-    if (Platform.OS === 'android') {
-      await this.setupAndroidChannel();
+      await api.post('/users/fcm-token', {
+        token: this.expoPushToken,
+      });
+    } catch (error) {
+      console.error('Failed to register push token', error);
     }
-  };
+  }
 
-  // Clean up resources
-  public cleanup = () => {
-    // Remove notification listeners
-    if (this.notificationListener) {
-      Notifications.removeNotificationSubscription(this.notificationListener);
+  /**
+   * Handle notification response
+   * @param response Notification response
+   */
+  handleNotificationResponse(response: Notifications.NotificationResponse): void {
+    const data = response.notification.request.content.data;
+    
+    console.log('Notification response:', data);
+    
+    // Handle different notification types
+    if (data.type === 'party_invitation') {
+      // Navigate to party screen
+      // This will be handled by the navigation service
+    } else if (data.type === 'friend_request') {
+      // Navigate to friend requests screen
+    } else if (data.type === 'user_entered') {
+      // Navigate to home screen
     }
+  }
 
-    if (this.responseListener) {
-      Notifications.removeNotificationSubscription(this.responseListener);
-    }
-  };
+  /**
+   * Set up notification listeners
+   * @param onNotification Callback for received notifications
+   * @param onNotificationResponse Callback for notification responses
+   * @returns Cleanup function
+   */
+  setupListeners(
+    onNotification?: (notification: Notifications.Notification) => void,
+    onNotificationResponse?: (response: Notifications.NotificationResponse) => void
+  ): () => void {
+    // Set up notification received listener
+    const notificationListener = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        console.log('Notification received:', notification);
+        if (onNotification) {
+          onNotification(notification);
+        }
+      }
+    );
 
-  // Send local notification
-  public sendLocalNotification = async (
+    // Set up notification response listener
+    const responseListener = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        if (onNotificationResponse) {
+          onNotificationResponse(response);
+        } else {
+          this.handleNotificationResponse(response);
+        }
+      }
+    );
+
+    // Return cleanup function
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener);
+      Notifications.removeNotificationSubscription(responseListener);
+    };
+  }
+
+  /**
+   * Send local notification
+   * @param title Notification title
+   * @param body Notification body
+   * @param data Additional data
+   */
+  async sendLocalNotification(
     title: string,
     body: string,
     data: any = {}
-  ) => {
+  ): Promise<void> {
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
         data,
+        sound: true,
       },
-      trigger: null, // Send immediately
+      trigger: null,
     });
-  };
+  }
 
-  // Register token with backend
-  private registerTokenWithBackend = async () => {
-    if (!this.expoPushToken) return;
-
-    try {
-      await api.post('/users/fcm-token', {
-        token: this.expoPushToken,
-      });
-      console.log('FCM token registered with backend');
-    } catch (error) {
-      console.error('Failed to register FCM token with backend:', error);
-    }
-  };
-
-  // Set up notification handlers
-  private setupNotificationHandlers = () => {
-    // Handle received notifications
-    this.notificationListener = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        console.log('Notification received:', notification);
-      }
-    );
-
-    // Handle notification responses (when user taps notification)
-    this.responseListener = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        console.log('Notification response received:', response);
-        this.handleNotificationResponse(response);
-      }
-    );
-  };
-
-  // Set up Android notification channel
-  private setupAndroidChannel = async () => {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-
-    await Notifications.setNotificationChannelAsync('house-entry', {
-      name: 'House Entry',
-      description: 'Notifications when friends enter the house',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#4CAF50',
-    });
-
-    await Notifications.setNotificationChannelAsync('invitations', {
-      name: 'Invitations',
-      description: 'Notifications for party invitations',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#2196F3',
-    });
-  };
-
-  // Handle notification response
-  private handleNotificationResponse = (response: Notifications.NotificationResponse) => {
-    const data = response.notification.request.content.data;
-
-    // Handle different notification types
-    switch (data.type) {
-      case 'house_entry':
-        // Handle house entry notification
-        this.handleHouseEntryNotification(data);
-        break;
-      case 'invitation':
-        // Handle invitation notification
-        this.handleInvitationNotification(data);
-        break;
-      default:
-        console.log('Unknown notification type:', data.type);
-    }
-  };
-
-  // Handle house entry notification
-  private handleHouseEntryNotification = (data: any) => {
-    // TODO: Navigate to home screen or video chat
-    console.log('Handling house entry notification:', data);
-  };
-
-  // Handle invitation notification
-  private handleInvitationNotification = (data: any) => {
-    // TODO: Navigate to invitation screen or directly join video chat
-    console.log('Handling invitation notification:', data);
-  };
+  /**
+   * Get push token
+   * @returns Expo push token
+   */
+  getPushToken(): string {
+    return this.expoPushToken;
+  }
 }
 
 export default new NotificationService();

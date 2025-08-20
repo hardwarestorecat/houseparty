@@ -1,18 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
 import User from '../models/User';
+import logger from '../utils/logger';
 
 // Extend Express Request interface to include user
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user: any;
     }
   }
 }
 
 /**
- * Protect routes - Verify JWT token and attach user to request
+ * Authentication middleware to protect routes
  */
 export const protect = async (
   req: Request,
@@ -20,7 +21,7 @@ export const protect = async (
   next: NextFunction
 ) => {
   try {
-    // Get token from Authorization header
+    // Get token from header
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -30,12 +31,12 @@ export const protect = async (
       });
     }
 
-    // Extract token
+    // Get token
     const token = authHeader.split(' ')[1];
 
     // Verify token
     const decoded = verifyAccessToken(token);
-    
+
     if (!decoded) {
       return res.status(401).json({
         success: false,
@@ -43,7 +44,7 @@ export const protect = async (
       });
     }
 
-    // Find user by ID
+    // Get user from token
     const user = await User.findById(decoded.userId);
 
     if (!user) {
@@ -53,11 +54,13 @@ export const protect = async (
       });
     }
 
-    // Attach user to request
+    // Set user in request
     req.user = user;
+
     next();
-  } catch (error) {
-    return res.status(401).json({
+  } catch (error: any) {
+    logger.error(`Auth middleware error: ${error.message}`);
+    res.status(401).json({
       success: false,
       error: 'Not authorized to access this route',
     });
@@ -65,20 +68,29 @@ export const protect = async (
 };
 
 /**
- * Check if user is verified
+ * Middleware to check if user is verified
  */
-export const isVerified = (
+export const isVerified = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  if (!req.user.isEmailVerified) {
-    return res.status(403).json({
+  try {
+    // Check if user is verified
+    if (!req.user.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        error: 'Email not verified',
+      });
+    }
+
+    next();
+  } catch (error: any) {
+    logger.error(`Verification middleware error: ${error.message}`);
+    res.status(500).json({
       success: false,
-      error: 'Email not verified. Please verify your email to access this route',
+      error: 'Server error',
     });
   }
-  
-  next();
 };
 
