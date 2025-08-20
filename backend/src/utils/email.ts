@@ -3,15 +3,16 @@ import config from '../config/config';
 import logger from './logger';
 
 /**
- * Create email transporter
+ * Create email transporter using Mailjet
  * @returns Nodemailer transporter
  */
 const createTransporter = () => {
   return nodemailer.createTransport({
-    service: config.email.service,
+    host: config.email.host,
+    port: config.email.port,
     auth: {
-      user: config.email.user,
-      pass: config.email.password,
+      user: config.email.apiKey,
+      pass: config.email.secretKey,
     },
   });
 };
@@ -33,8 +34,8 @@ export const generateOTP = (): string => {
 export const sendOTPEmail = async (email: string, otp: string): Promise<boolean> => {
   try {
     // Check if email configuration is available
-    if (!config.email.user || !config.email.password) {
-      logger.warn('Email service not configured. OTP would have been sent to:', email);
+    if (!config.email.apiKey || !config.email.secretKey) {
+      logger.warn('Mailjet not configured. OTP would have been sent to:', email);
       logger.info(`OTP for ${email}: ${otp}`);
       return true; // Return true for development purposes
     }
@@ -85,8 +86,8 @@ export const sendOTPEmail = async (email: string, otp: string): Promise<boolean>
 export const sendPasswordResetEmail = async (email: string, otp: string): Promise<boolean> => {
   try {
     // Check if email configuration is available
-    if (!config.email.user || !config.email.password) {
-      logger.warn('Email service not configured. Password reset OTP would have been sent to:', email);
+    if (!config.email.apiKey || !config.email.secretKey) {
+      logger.warn('Mailjet not configured. Password reset OTP would have been sent to:', email);
       logger.info(`Password reset OTP for ${email}: ${otp}`);
       return true; // Return true for development purposes
     }
@@ -144,8 +145,8 @@ export const sendInvitationEmail = async (
 ): Promise<boolean> => {
   try {
     // Check if email configuration is available
-    if (!config.email.user || !config.email.password) {
-      logger.warn('Email service not configured. Invitation would have been sent to:', email);
+    if (!config.email.apiKey || !config.email.secretKey) {
+      logger.warn('Mailjet not configured. Invitation would have been sent to:', email);
       return true; // Return true for development purposes
     }
 
@@ -183,4 +184,3 @@ export const sendInvitationEmail = async (
     return false;
   }
 };
-

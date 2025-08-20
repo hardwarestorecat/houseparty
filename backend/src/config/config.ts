@@ -23,11 +23,12 @@ const config = {
     refreshTokenExpiry: process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d',
   },
   
-  // Email configuration
+  // Mailjet configuration
   email: {
-    service: process.env.EMAIL_SERVICE || 'gmail',
-    user: process.env.EMAIL_USER || '',
-    password: process.env.EMAIL_PASSWORD || '',
+    host: process.env.MAILJET_HOST || 'in-v3.mailjet.com',
+    port: parseInt(process.env.MAILJET_PORT || '587'),
+    apiKey: process.env.MAILJET_API_KEY || '',
+    secretKey: process.env.MAILJET_SECRET_KEY || '',
     from: process.env.EMAIL_FROM || 'noreply@houseparty.com',
   },
   
@@ -50,4 +51,3 @@ const config = {
 };
 
 export default config;
-

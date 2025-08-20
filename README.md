@@ -28,12 +28,46 @@ A user-to-user live stream mobile app for Android and iOS that allows friends to
 - MongoDB Atlas
 - Socket.io for real-time presence
 - Custom JWT authentication
+- Mailjet for email services
 - Vercel for hosting
 
 ### Mobile
 - React Native for cross-platform development
 - Agora.io SDK for video streaming
 - Firebase Cloud Messaging for push notifications
+
+## Email Configuration with Mailjet
+
+This application uses Mailjet for sending verification emails, password reset emails, and party invitations. Follow these steps to set up Mailjet:
+
+1. **Create a Mailjet Account**:
+   - Sign up at [Mailjet](https://www.mailjet.com/)
+   - Verify your account and domain
+
+2. **Get Your API Credentials**:
+   - Go to the Mailjet dashboard
+   - Navigate to Account Settings > API Keys
+   - Copy your API Key and Secret Key
+
+3. **Configure Environment Variables**:
+   - In your backend `.env` file, add the following:
+   ```
+   MAILJET_HOST=in-v3.mailjet.com
+   MAILJET_PORT=587
+   MAILJET_API_KEY=your_mailjet_api_key
+   MAILJET_SECRET_KEY=your_mailjet_secret_key
+   EMAIL_FROM=noreply@yourdomain.com
+   ```
+   - Replace `your_mailjet_api_key` and `your_mailjet_secret_key` with your actual Mailjet credentials
+   - Set `EMAIL_FROM` to a verified sender email address in your Mailjet account
+
+4. **Verify Sender Domain**:
+   - For production use, verify your sender domain in Mailjet
+   - Follow Mailjet's instructions for adding DNS records to your domain
+
+5. **Testing**:
+   - Send a test email through the application to verify your setup
+   - Check Mailjet's dashboard for delivery status and analytics
 
 ## Project Structure
 
@@ -76,6 +110,7 @@ houseparty/
 - npm or yarn
 - MongoDB Atlas account
 - Agora.io account
+- Mailjet account
 - Firebase project (for push notifications)
 - Android Studio (for Android development)
 - Xcode (for iOS development, macOS only)
@@ -112,6 +147,11 @@ MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/houseparty
 # JWT Secrets - Generate strong random strings
 JWT_ACCESS_TOKEN_SECRET=your_access_token_secret
 JWT_REFRESH_TOKEN_SECRET=your_refresh_token_secret
+
+# Mailjet - Get credentials at https://app.mailjet.com/account/api_keys
+MAILJET_API_KEY=your_mailjet_api_key
+MAILJET_SECRET_KEY=your_mailjet_secret_key
+EMAIL_FROM=noreply@yourdomain.com
 
 # Agora.io - Get credentials at https://console.agora.io/
 AGORA_APP_ID=your_agora_app_id
@@ -219,7 +259,7 @@ Once you have the backend running and the mobile app launched on your device or 
      - Password: At least 6 characters
    - Tap "Sign Up"
    - You'll be redirected to the verification screen
-   - In a real environment, you would receive an email with OTP
+   - In a real environment, you would receive an email with OTP from Mailjet
    - For testing, check the backend console logs to find the OTP
    - Enter the OTP in the verification screen
 
@@ -240,6 +280,7 @@ Once you have the backend running and the mobile app launched on your device or 
 - Check that all required environment variables are set
 - Verify the server is running on the expected port
 - Look for error messages in the console
+- Verify Mailjet API credentials are correct
 
 #### Mobile App Issues:
 - Make sure the API_URL in the .env file points to your running backend
@@ -251,6 +292,12 @@ Once you have the backend running and the mobile app launched on your device or 
 - Ensure your device/emulator and backend server are on the same network
 - Check firewall settings that might block connections
 - Verify the backend server is accessible from your device/emulator
+
+#### Email Issues:
+- Verify Mailjet API credentials are correct
+- Check if your sender email is verified in Mailjet
+- Look for email delivery logs in Mailjet dashboard
+- Check backend logs for any email sending errors
 
 ## Development
 
@@ -276,3 +323,4 @@ The mobile app can be built for Android and iOS using the standard React Native 
 
 ## License
 [MIT](LICENSE)
+
