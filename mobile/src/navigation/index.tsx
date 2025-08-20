@@ -13,8 +13,8 @@ import HomeScreen from '../screens/Home/HomeScreen';
 import FriendsScreen from '../screens/Friends/FriendsScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import VideoChatScreen from '../screens/VideoChat/VideoChatScreen';
-import PartyListScreen from '../screens/PartyList/PartyListScreen';
-import InviteScreen from '../screens/Invite/InviteScreen';
+import PartyListScreen from '../screens/VideoChat/PartyListScreen';
+import InviteScreen from '../screens/VideoChat/InviteToPartyScreen';
 
 // Stack Navigators
 const Stack = createNativeStackNavigator();
@@ -98,4 +98,3 @@ const Navigation = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
 };
 
 export default Navigation;
-
