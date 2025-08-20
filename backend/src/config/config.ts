@@ -4,37 +4,48 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const config = {
+  // Server configuration
   server: {
     port: process.env.PORT || 5000,
-    nodeEnv: process.env.NODE_ENV || 'development',
+    env: process.env.NODE_ENV || 'development',
   },
-  db: {
+  
+  // MongoDB configuration
+  mongodb: {
     uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/houseparty',
   },
+  
+  // JWT configuration
   jwt: {
-    accessSecret: process.env.JWT_ACCESS_SECRET || 'access_secret',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'refresh_secret',
-    accessExpiration: process.env.JWT_ACCESS_EXPIRATION || '15m',
-    refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || '7d',
+    accessTokenSecret: process.env.JWT_ACCESS_TOKEN_SECRET || 'access-token-secret',
+    refreshTokenSecret: process.env.JWT_REFRESH_TOKEN_SECRET || 'refresh-token-secret',
+    accessTokenExpiry: process.env.JWT_ACCESS_TOKEN_EXPIRY || '15m',
+    refreshTokenExpiry: process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d',
   },
+  
+  // Email configuration
   email: {
     service: process.env.EMAIL_SERVICE || 'gmail',
     user: process.env.EMAIL_USER || '',
     password: process.env.EMAIL_PASSWORD || '',
-    from: process.env.EMAIL_FROM || 'House Party <noreply@houseparty.com>',
+    from: process.env.EMAIL_FROM || 'noreply@houseparty.com',
   },
+  
+  // Agora configuration
   agora: {
     appId: process.env.AGORA_APP_ID || '',
     appCertificate: process.env.AGORA_APP_CERTIFICATE || '',
+    tokenExpiry: parseInt(process.env.AGORA_TOKEN_EXPIRY || '3600'),
   },
-  fcm: {
-    serverKey: process.env.FCM_SERVER_KEY || '',
+  
+  // Firebase configuration
+  firebase: {
+    serverKey: process.env.FIREBASE_SERVER_KEY || '',
   },
+  
+  // CORS configuration
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
-  },
-  logging: {
-    level: process.env.LOG_LEVEL || 'info',
+    origin: process.env.CORS_ORIGIN || '*',
   },
 };
 

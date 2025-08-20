@@ -4,65 +4,51 @@ import { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
-import compression from 'compression';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
-import { createLogger } from './utils/logger';
+import config from './config/config';
+import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
-
-// Load environment variables
-dotenv.config();
+import logger from './utils/logger';
 
 // Create Express app
 const app = express();
+
+// Create HTTP server
 const server = http.createServer(app);
 
 // Create Socket.IO server
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    origin: config.cors.origin,
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
 
-// Create logger
-const logger = createLogger();
-
 // Connect to MongoDB
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || '');
-    logger.info(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    logger.error(`Error connecting to MongoDB: ${error}`);
+mongoose
+  .connect(config.mongodb.uri)
+  .then(() => {
+    logger.info('Connected to MongoDB');
+  })
+  .catch((err) => {
+    logger.error(`MongoDB connection error: ${err}`);
     process.exit(1);
-  }
-};
+  });
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+  origin: config.cors.origin,
   credentials: true,
 }));
 app.use(helmet());
-app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Routes
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to House Party API' });
-});
-
-// Import routes
-// app.use('/api/auth', authRoutes);
-// app.use('/api/users', userRoutes);
-// app.use('/api/friends', friendRoutes);
-// app.use('/api/parties', partyRoutes);
-// app.use('/api/invitations', invitationRoutes);
+// API routes
+app.use('/api', routes);
 
 // Error handling
 app.use(notFoundHandler);
@@ -70,46 +56,73 @@ app.use(errorHandler);
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-  logger.info(`User connected: ${socket.id}`);
+  logger.info(`Socket connected: ${socket.id}`);
 
-  // Handle user entering the house
+  // Get user ID from auth data
+  const userId = socket.handshake.auth.userId;
+  
+  if (!userId) {
+    logger.warn(`Socket ${socket.id} has no user ID`);
+    socket.disconnect();
+    return;
+  }
+
+  // Join user's room
+  socket.join(`user:${userId}`);
+
+  // Handle enter house event
   socket.on('enter_house', (userId) => {
+    // Add user to house room
+    socket.join('house');
+    
+    // Notify all users in house
+    socket.to('house').emit('user_entered', { userId });
+    
     logger.info(`User ${userId} entered the house`);
-    // TODO: Implement presence tracking and notification logic
   });
 
-  // Handle user leaving the house
+  // Handle leave house event
   socket.on('leave_house', (userId) => {
+    // Remove user from house room
+    socket.leave('house');
+    
+    // Notify all users in house
+    socket.to('house').emit('user_left', { userId });
+    
     logger.info(`User ${userId} left the house`);
-    // TODO: Implement presence tracking update
   });
 
-  // Handle disconnection
+  // Handle get users in house
+  socket.on('get_users_in_house', (callback) => {
+    // Get all sockets in house room
+    const sockets = io.sockets.adapter.rooms.get('house');
+    
+    if (!sockets) {
+      callback([]);
+      return;
+    }
+    
+    // Get user IDs from sockets
+    const userIds = Array.from(sockets).map((socketId) => {
+      const socket = io.sockets.sockets.get(socketId);
+      return socket?.handshake.auth.userId;
+    }).filter(Boolean);
+    
+    callback(userIds);
+  });
+
+  // Handle disconnect
   socket.on('disconnect', () => {
-    logger.info(`User disconnected: ${socket.id}`);
-    // TODO: Update user presence status
+    logger.info(`Socket disconnected: ${socket.id}`);
+    
+    // Notify all users in house
+    socket.to('house').emit('user_left', { userId });
   });
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
-const startServer = async () => {
-  await connectDB();
-  server.listen(PORT, () => {
-    logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  });
-};
-
-startServer().catch((error) => {
-  logger.error(`Failed to start server: ${error}`);
+const PORT = config.server.port;
+server.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`);
 });
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err: Error) => {
-  logger.error(`Unhandled Rejection: ${err.message}`);
-  // Close server & exit process
-  server.close(() => process.exit(1));
-});
-
-export { app, server, io };
 

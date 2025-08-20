@@ -1,71 +1,58 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
-
-interface TokenPayload {
-  userId: string;
-  [key: string]: any;
-}
+import logger from './logger';
 
 /**
  * Generate access token
- * @param payload Token payload
- * @returns Access token
+ * @param userId User ID
+ * @returns JWT access token
  */
-export const generateAccessToken = (payload: TokenPayload): string => {
-  return jwt.sign(payload, config.jwt.accessSecret, {
-    expiresIn: config.jwt.accessExpiration,
-  });
+export const generateAccessToken = (userId: string): string => {
+  return jwt.sign(
+    { userId },
+    config.jwt.accessTokenSecret,
+    { expiresIn: config.jwt.accessTokenExpiry }
+  );
 };
 
 /**
  * Generate refresh token
- * @param payload Token payload
- * @returns Refresh token
+ * @param userId User ID
+ * @returns JWT refresh token
  */
-export const generateRefreshToken = (payload: TokenPayload): string => {
-  return jwt.sign(payload, config.jwt.refreshSecret, {
-    expiresIn: config.jwt.refreshExpiration,
-  });
+export const generateRefreshToken = (userId: string): string => {
+  return jwt.sign(
+    { userId },
+    config.jwt.refreshTokenSecret,
+    { expiresIn: config.jwt.refreshTokenExpiry }
+  );
 };
 
 /**
  * Verify access token
- * @param token Access token
+ * @param token JWT access token
  * @returns Decoded token payload or null if invalid
  */
-export const verifyAccessToken = (token: string): TokenPayload | null => {
+export const verifyAccessToken = (token: string): any | null => {
   try {
-    return jwt.verify(token, config.jwt.accessSecret) as TokenPayload;
+    return jwt.verify(token, config.jwt.accessTokenSecret);
   } catch (error) {
+    logger.error(`Access token verification error: ${error}`);
     return null;
   }
 };
 
 /**
  * Verify refresh token
- * @param token Refresh token
+ * @param token JWT refresh token
  * @returns Decoded token payload or null if invalid
  */
-export const verifyRefreshToken = (token: string): TokenPayload | null => {
+export const verifyRefreshToken = (token: string): any | null => {
   try {
-    return jwt.verify(token, config.jwt.refreshSecret) as TokenPayload;
+    return jwt.verify(token, config.jwt.refreshTokenSecret);
   } catch (error) {
+    logger.error(`Refresh token verification error: ${error}`);
     return null;
   }
-};
-
-/**
- * Generate tokens (access and refresh)
- * @param userId User ID
- * @returns Object containing access and refresh tokens
- */
-export const generateTokens = (userId: string) => {
-  const accessToken = generateAccessToken({ userId });
-  const refreshToken = generateRefreshToken({ userId });
-
-  return {
-    accessToken,
-    refreshToken,
-  };
 };
 
