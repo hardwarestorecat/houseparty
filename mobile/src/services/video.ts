@@ -399,41 +399,39 @@ class VideoService extends EventEmitter {
 
   /**
    * Get local video view component
-   * @returns RtcLocalView.SurfaceView component
+   * @returns RtcLocalView.SurfaceView component configuration
    */
   getLocalVideoView() {
     if (!this.initialized) {
       return null;
     }
 
-    return (
-      <RtcLocalView.SurfaceView
-        style={{ flex: 1 }}
-        channelId={this.channelName}
-        renderMode={VideoRenderMode.Hidden}
-      />
-    );
+    // Return configuration object instead of JSX for TypeScript
+    return {
+      style: { flex: 1 },
+      channelId: this.channelName,
+      renderMode: VideoRenderMode.Hidden
+    };
   }
 
   /**
    * Get remote video view component for a specific user
    * @param uid Remote user ID
-   * @returns RtcRemoteView.SurfaceView component
+   * @returns RtcRemoteView.SurfaceView component configuration
    */
   getRemoteVideoView(uid: number) {
     if (!this.initialized) {
       return null;
     }
 
-    return (
-      <RtcRemoteView.SurfaceView
-        style={{ flex: 1 }}
-        uid={uid}
-        channelId={this.channelName}
-        renderMode={VideoRenderMode.Hidden}
-        zOrderMediaOverlay={true}
-      />
-    );
+    // Return configuration object instead of JSX for TypeScript
+    return {
+      style: { flex: 1 },
+      uid: uid,
+      channelId: this.channelName,
+      renderMode: VideoRenderMode.Hidden,
+      zOrderMediaOverlay: true
+    };
   }
 
   /**
