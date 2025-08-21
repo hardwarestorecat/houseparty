@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import videoService from '../../services/video';
 import api from '../../api';
+import { RtcLocalView, RtcRemoteView } from 'react-native-agora';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Define route params type
@@ -286,9 +287,33 @@ const VideoChatScreen = () => {
             ]}
           >
             {participant.uid === uid ? (
-              videoService.getLocalVideoView()
+              Platform.OS === 'web' ? (
+                <View style={{ flex: 1, backgroundColor: '#333' }}>
+                  {/* Web placeholder for local video */}
+                  <Text style={{ color: 'white', textAlign: 'center' }}>Local Video</Text>
+                </View>
+              ) : (
+                <RtcLocalView.SurfaceView
+                  style={{ flex: 1 }}
+                  channelId={partyDetails?.channelName || `party_${partyId}`}
+                  renderMode={1} // VideoRenderMode.Hidden
+                />
+              )
             ) : (
-              videoService.getRemoteVideoView(participant.uid)
+              Platform.OS === 'web' ? (
+                <View style={{ flex: 1, backgroundColor: '#333' }}>
+                  {/* Web placeholder for remote video */}
+                  <Text style={{ color: 'white', textAlign: 'center' }}>Remote Video</Text>
+                </View>
+              ) : (
+                <RtcRemoteView.SurfaceView
+                  style={{ flex: 1 }}
+                  uid={participant.uid}
+                  channelId={partyDetails?.channelName || `party_${partyId}`}
+                  renderMode={1} // VideoRenderMode.Hidden
+                  zOrderMediaOverlay={true}
+                />
+              )
             )}
             <View style={styles.nameTag}>
               <Text style={styles.nameText}>
@@ -515,4 +540,3 @@ const styles = StyleSheet.create({
 });
 
 export default VideoChatScreen;
-
