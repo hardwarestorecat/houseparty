@@ -13,6 +13,8 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "agora-access-token": "^2.0.4",
+    "axios": "^1.11.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
@@ -49,4 +51,3 @@
     "typescript": "^5.4.3"
   }
 }
-
