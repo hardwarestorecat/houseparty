@@ -406,12 +406,20 @@ class VideoService extends EventEmitter {
       return null;
     }
 
-    // Return configuration object instead of JSX for TypeScript
-    return {
-      style: { flex: 1 },
-      channelId: this.channelName,
-      renderMode: VideoRenderMode.Hidden
-    };
+    if (Platform.OS === 'web') {
+      // For web, return a placeholder configuration
+      return {
+        style: { flex: 1, backgroundColor: '#333' },
+        text: 'Local Video'
+      };
+    } else {
+      // Return configuration object instead of JSX for TypeScript
+      return {
+        style: { flex: 1 },
+        channelId: this.channelName,
+        renderMode: VideoRenderMode.Hidden
+      };
+    }
   }
 
   /**
@@ -424,14 +432,22 @@ class VideoService extends EventEmitter {
       return null;
     }
 
-    // Return configuration object instead of JSX for TypeScript
-    return {
-      style: { flex: 1 },
-      uid: uid,
-      channelId: this.channelName,
-      renderMode: VideoRenderMode.Hidden,
-      zOrderMediaOverlay: true
-    };
+    if (Platform.OS === 'web') {
+      // For web, return a placeholder configuration
+      return {
+        style: { flex: 1, backgroundColor: '#333' },
+        text: 'Remote Video'
+      };
+    } else {
+      // Return configuration object instead of JSX for TypeScript
+      return {
+        style: { flex: 1 },
+        uid: uid,
+        channelId: this.channelName,
+        renderMode: VideoRenderMode.Hidden,
+        zOrderMediaOverlay: true
+      };
+    }
   }
 
   /**
