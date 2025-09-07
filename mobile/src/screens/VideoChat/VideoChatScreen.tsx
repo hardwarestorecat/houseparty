@@ -17,8 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import videoService from '../../services/video';
 import api from '../../api';
-import { RtcLocalView, RtcRemoteView } from 'react-native-agora';
 import { useFocusEffect } from '@react-navigation/native';
+import AgoraVideo from '../../components/AgoraVideo';
 
 // Define route params type
 type VideoChatRouteParams = {
@@ -286,35 +286,13 @@ const VideoChatScreen = () => {
               },
             ]}
           >
-            {participant.uid === uid ? (
-              Platform.OS === 'web' ? (
-                <View style={{ flex: 1, backgroundColor: '#333' }}>
-                  {/* Web placeholder for local video */}
-                  <Text style={{ color: 'white', textAlign: 'center' }}>Local Video</Text>
-                </View>
-              ) : (
-                <RtcLocalView.SurfaceView
-                  style={{ flex: 1 }}
-                  channelId={partyDetails?.channelName || `party_${partyId}`}
-                  renderMode={1} // VideoRenderMode.Hidden
-                />
-              )
-            ) : (
-              Platform.OS === 'web' ? (
-                <View style={{ flex: 1, backgroundColor: '#333' }}>
-                  {/* Web placeholder for remote video */}
-                  <Text style={{ color: 'white', textAlign: 'center' }}>Remote Video</Text>
-                </View>
-              ) : (
-                <RtcRemoteView.SurfaceView
-                  style={{ flex: 1 }}
-                  uid={participant.uid}
-                  channelId={partyDetails?.channelName || `party_${partyId}`}
-                  renderMode={1} // VideoRenderMode.Hidden
-                  zOrderMediaOverlay={true}
-                />
-              )
-            )}
+            <AgoraVideo
+              isLocal={participant.uid === uid}
+              uid={participant.uid !== uid ? participant.uid : undefined}
+              channelId={partyDetails?.channelName || `party_${partyId}`}
+              style={{ flex: 1 }}
+              username={participant.username || `User ${index + 1}`}
+            />
             <View style={styles.nameTag}>
               <Text style={styles.nameText}>
                 {participant.username || `User ${index + 1}`}
