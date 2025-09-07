@@ -41,7 +41,8 @@ const config = {
   
   // Firebase configuration
   firebase: {
-    serverKey: process.env.FIREBASE_SERVER_KEY || '',
+    serverKey: process.env.FIREBASE_SERVER_KEY || '', // Deprecated - use serviceAccount instead
+    serviceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || '',
   },
   
   // CORS configuration
